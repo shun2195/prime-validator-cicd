@@ -1,0 +1,47 @@
+name: Automated Production Release (CD)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish-artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make cppcheck
+
+      - name: Validate Source Before Release
+        run: make lint
+
+      - name: Build Production Binary
+        run: make build
+
+      - name: Execute Unit Tests Before Release
+        run: make test
+
+      - name: Package Artifact Archive
+        run: tar -czvf prime-validator-linux-amd64.tar.gz validator
+
+      - name: Deploy Asset to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          files: prime-validator-linux-amd64.tar.gz
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
